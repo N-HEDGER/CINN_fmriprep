@@ -1,0 +1,18 @@
+slurm:
+  cpus_per_task: 16
+  mem_per_cpu: '4G'
+  N: '1-1'
+
+
+cmds:
+  cmd_wcard: 'fmriprep {bidspath} {outpath} participant --participant-label {subject} --fs-license-file {fs_license} -w {workpath} --output-spaces {output_spaces}'
+  activate_cmd: 'export PATH=/storage/research/cinn_comp/cnbpy_Resources/transparent_singularity/fmriprep_20.1.3_20201118:$PATH'
+  slurm_pre_commands: ['source ~/.bashrc', 'cd /storage']
+  tf_wcard: 'export SINGULARITYENV_TEMPLATEFLOW_HOME={tf_path}'
+
+paths:
+  image_path: '/storage/research/cinn_comp/cnbpy_Resources/transparent_singularity/fmriprep_20.1.3_20201118'
+  tf_path: '/storage/research/cinn_comp/cnbpy_Resources/templateflow'
+  fs_license: '/storage/research/cinn_comp/cnbpy_Resources/license.txt'
+
+
