@@ -38,15 +38,18 @@ def activate_fmriprep(line_to_add: str = activate_command):
         line_exists = any(line.strip() == line_to_add for line in lines)
 
     if line_exists:
-        print('fmriprep already activated ~/.bashrc')
+        print('Already activated ~/.bashrc')
 
     # Add the line to ~/.bashrc if it doesn't exist
     if not line_exists:
         with open(bashrc_path, 'a') as f:
             f.write(line_to_add + '\n')
-        print('fmriprep activated')
+        print('Activated')
 
     os.system('source ~/.bashrc')
+
+def activate_mriqc(line_to_add: str = load_pkg_yaml()['mriqc_cmds']['activate_cmd']):
+    activate_fmriprep(line_to_add)
 
 
 class FmriPrepHandler:
@@ -183,7 +186,7 @@ class FmriPrepHandler:
         """
         Creates a message with information about the submitted job.
         """
-        self.message = ("""fMRIprep Job with {jobname} submitted! \n
+        self.message = ("""Job with {jobname} submitted! \n
                Outputs will be found at {outpath} \n 
               Progress updated in {outfile}\n
               Errors will be reported at {errfile}\n""".format(jobname=self.jobname, outpath=self.out_path, outfile=self.outfile, errfile=self.errfile))
@@ -194,6 +197,67 @@ class FmriPrepHandler:
         """
         print(self.message)
 
+
+class MriqcHandler(FmriPrepHandler):
+    """
+    A class for handling MRIQC processing. Uses FmriPrepHandler as a base class.
+
+    Args:
+        bids_path (str): The path to the BIDS dataset.
+        out_path (str): The output path for the processed data.
+        work_path (str): The working directory path.
+        slurmout_path (str): The path for SLURM output files.
+        subject (str, optional): The subject to process. Defaults to 'allsubs'.
+        yaml (str, optional): The YAML configuration file. Defaults to pkg_yaml.
+    """
+
+    def __init__(self, bids_path: str, out_path: str, work_path: str, slurmout_path: str, subject: str = 'allsubs', yaml: str = pkg_yaml):
+        self.subject = subject
+        self.jobname = 'mriqc_{subject}'.format(subject=self.subject)
+        self.out_path = os.path.join(out_path, self.subject)
+        self.work_path = os.path.join(work_path, self.subject)
+        self.bids_path = bids_path
+        self.make_dirs()
+
+        
+        self.subject = subject
+        self.slurmout_path = slurmout_path
+        self.outfile = os.path.join(self.slurmout_path, '{subject}.out'.format(subject=self.jobname))
+        self.errfile = os.path.join(self.slurmout_path, '{subject}.err'.format(subject=self.jobname))
+
+        self.yaml = yaml
+        self.load_yaml()
+        self.internalize_config(self.y, 'mriqc_paths')
+        self.internalize_config(self.y, 'mriqc_cmds')
+
+    def make_slurm(self, additionals=[]):
+        """
+        Creates the SLURM job script for running fmriprep.
+
+        Args:
+            additionals (list, optional): Additional arguments for mriqc. Defaults to [].
+        """
+        self.slurm = Slurm(**load_pkg_yaml()['mriqc_slurm'])
+
+        self.slurm._add_one_argument('output', self.outfile)
+        self.slurm._add_one_argument('error', self.errfile)
+        [self.slurm.add_cmd(cmd) for cmd in self.slurm_pre_commands]
+
+
+        kwarg_string = ' '.join(additionals)
+
+        self.cmd = self.cmd_wcard.format(
+            outpath=self.out_path,
+            subject=self.subject,
+            bidspath=self.bids_path,
+            workpath=self.work_path)
+
+        self.cmd = self.cmd + ' ' + kwarg_string
+        self.cmd = self.cmd.replace('--participant-label allsubs', '')
+        if self.subject=='allsubs':
+            self.cmd = self.cmd.replace('participant', 'group')
+
+        
 
 
 class MultipleFmriPrepHandler:
@@ -253,3 +317,21 @@ class MultipleFmriPrepHandler:
         """
         for handler in self.handlers:
             handler.submit_slurm()
+
+
+class MultipleMriqcHandler(MultipleFmriPrepHandler):
+    """
+    A class that handles multiple MriqcHandler instances for each subject. Uses MultipleFmriPrepHandler as a base class.
+    """
+
+    def make_mriqc_handlers(self):
+        """
+        Creates MriqcHandler instances for each subject.
+        """
+        for sub in self.subjects:
+            self.handlers.append(MriqcHandler(self.bids_path, self.out_path, self.work_path, self.slurmout_path, sub))
+
+    def make_slurms(self, additionals=[]):
+        for handler in self.handlers:
+            handler.make_slurm(additionals)
+
