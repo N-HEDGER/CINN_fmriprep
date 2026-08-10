@@ -186,10 +186,16 @@ class FmriPrepHandler:
         """
         Creates a message with information about the submitted job.
         """
-        self.message = ("""Job with {jobname} submitted! \n
-               Outputs will be found at {outpath} \n 
-              Progress updated in {outfile}\n
-              Errors will be reported at {errfile}\n""".format(jobname=self.jobname, outpath=self.out_path, outfile=self.outfile, errfile=self.errfile))
+        subject_label = self.subject.replace('sub-', '')
+        report_path = os.path.join(self.out_path, 'fmriprep', f'sub-{subject_label}.html')
+        self.message = (
+            f"Job '{self.jobname}' submitted!\n"
+            f"  Outputs:     {self.out_path}\n"
+            f"  HTML report: {report_path}  (available once the job completes)\n"
+            f"  Progress:    {self.outfile}\n"
+            f"  Errors:      {self.errfile}\n"
+            f"\nTip: use the VSCode SLURM Dashboard extension to monitor job status."
+        )
 
     def print_message(self):
         """
@@ -214,7 +220,8 @@ class MriqcHandler(FmriPrepHandler):
     def __init__(self, bids_path: str, out_path: str, work_path: str, slurmout_path: str, subject: str = 'allsubs', yaml: str = pkg_yaml):
         self.subject = subject
         self.jobname = 'mriqc_{subject}'.format(subject=self.subject)
-        self.out_path = os.path.join(out_path, self.subject)
+        #self.out_path = os.path.join(out_path, self.subject)
+        self.out_path = out_path
         self.work_path = os.path.join(work_path, self.subject)
         self.bids_path = bids_path
         self.make_dirs()
@@ -257,7 +264,24 @@ class MriqcHandler(FmriPrepHandler):
         if self.subject=='allsubs':
             self.cmd = self.cmd.replace('participant', 'group')
 
-        
+    def make_message(self):
+        """
+        Creates a message with information about the submitted MRIQC job.
+        """
+        subject_label = self.subject.replace('sub-', '')
+        if self.subject == 'allsubs':
+            report_note = f"  HTML reports: {self.out_path}/group_bold.html, group_T1w.html  (available once the job completes)\n"
+        else:
+            report_note = f"  HTML reports: {self.out_path}/sub-{subject_label}_*.html  (available once the job completes)\n"
+        self.message = (
+            f"Job '{self.jobname}' submitted!\n"
+            f"  Outputs:  {self.out_path}\n"
+            f"{report_note}"
+            f"  Progress: {self.outfile}\n"
+            f"  Errors:   {self.errfile}\n"
+            f"\nTip: use the VSCode SLURM Dashboard extension to monitor job status."
+        )
+
 
 
 class MultipleFmriPrepHandler:

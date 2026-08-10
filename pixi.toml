@@ -1,0 +1,16 @@
+[project]
+name = "CINN_fmriprep"
+version = "0.1.0"
+description = "Tools for running fMRIprep and MRIQC on racc2 HPC"
+authors = ["Nicholas Hedger <n.hedger@reading.ac.uk>"]
+channels = ["conda-forge"]
+platforms = ["linux-64", "osx-arm64", "osx-64"]
+
+[dependencies]
+python = ">=3.9,<3.13"
+ipykernel = "*"
+pyyaml = "*"
+
+[pypi-dependencies]
+simple-slurm = "*"
+CINN_fmriprep = { path = ".", editable = true }
